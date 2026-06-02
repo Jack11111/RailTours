@@ -773,6 +773,109 @@
       font-size: 15px;
     }
 
+    .weather-widget {
+      width: min(100%, 560px);
+      margin: 0 0 16px;
+      padding: 16px;
+      border-radius: 24px;
+      background: rgba(16,37,29,.38);
+      border: 1px solid rgba(255,255,255,.20);
+      backdrop-filter: blur(18px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 18px 52px rgba(0,0,0,.18);
+    }
+
+    .weather-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .weather-label {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,.62);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .weather-temp {
+      display: block;
+      font-size: clamp(34px, 4vw, 54px);
+      line-height: .9;
+      letter-spacing: -.08em;
+      color: #fff5d8;
+    }
+
+    .weather-status {
+      margin-top: 7px;
+      color: rgba(255,255,255,.78);
+      line-height: 1.5;
+      font-weight: 650;
+    }
+
+    .weather-badge {
+      flex: 0 0 auto;
+      min-width: 82px;
+      min-height: 82px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, rgba(240,202,123,.76), rgba(183,96,53,.62));
+      color: var(--forest);
+      font-size: 14px;
+      font-weight: 950;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      text-align: center;
+      box-shadow: 0 18px 34px rgba(0,0,0,.18);
+    }
+
+    .weather-details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+    }
+
+    .weather-detail {
+      min-height: 66px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+
+    .weather-detail span {
+      display: block;
+      margin-bottom: 6px;
+      color: rgba(255,255,255,.55);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .weather-detail strong {
+      color: rgba(255,255,255,.9);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .weather-note {
+      margin: 14px 0 0;
+      color: rgba(255,255,255,.58);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .weather-widget[data-state="error"] .weather-badge {
+      background: rgba(255,255,255,.14);
+      color: rgba(255,255,255,.82);
+    }
+
     .faq-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -931,6 +1034,9 @@
       .story-panel { min-height: 560px; }
       .section { padding: 72px 0; }
       .route-labels { font-size: 10px; }
+      .weather-top { flex-direction: column; }
+      .weather-badge { width: 100%; min-height: 72px; }
+      .weather-details { grid-template-columns: 1fr; }
       .info-item { align-items: flex-start; flex-direction: column; }
       .info-item strong { text-align: left; }
       footer { padding-bottom: 34px; }
@@ -984,6 +1090,7 @@
         <a href="#rides">Rides</a>
         <a href="#experience">Experience</a>
         <a href="#visit">Plan Visit</a>
+        <a href="#weather">Weather</a>
         <a href="#faq">FAQ</a>
         <a class="button primary" href="https://book.peek.com/s/ea7225a8-e656-4a5c-9905-ef67eaf7ec29/emzR7" target="_blank" rel="noopener">Book Now</a>
       </div>
@@ -997,6 +1104,22 @@
       </div>
       <div class="hero-inner">
         <div>
+          <div class="weather-widget" id="weather" data-state="loading" aria-live="polite">
+            <div class="weather-top">
+              <div>
+                <span class="weather-label">Current weather in Andrews</span>
+                <strong class="weather-temp" id="weatherTemp">Loading</strong>
+                <div class="weather-status" id="weatherStatus">Checking National Weather Service observations.</div>
+              </div>
+              <div class="weather-badge" id="weatherBadge">NWS</div>
+            </div>
+            <div class="weather-details">
+              <div class="weather-detail"><span>Wind</span><strong id="weatherWind">--</strong></div>
+              <div class="weather-detail"><span>Humidity</span><strong id="weatherHumidity">--</strong></div>
+              <div class="weather-detail"><span>Observed</span><strong id="weatherObserved">--</strong></div>
+            </div>
+            <p class="weather-note" id="weatherNote">Live conditions are provided by the National Weather Service from the nearest reporting station.</p>
+          </div>
           <div class="eyebrow">Andrews, North Carolina</div>
           <h1>Ride historic rails through the <span class="serif">Blue Ridge</span>.</h1>
           <p class="hero-copy">An open-air rail adventure from Andrews Depot through mountain views, forests, rivers, and the historic Valley River Tunnel.</p>
@@ -1201,6 +1324,87 @@
     }, { threshold: 0.12 });
 
     document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    const weatherWidget = document.querySelector('#weather');
+    const weatherTemp = document.querySelector('#weatherTemp');
+    const weatherStatus = document.querySelector('#weatherStatus');
+    const weatherBadge = document.querySelector('#weatherBadge');
+    const weatherWind = document.querySelector('#weatherWind');
+    const weatherHumidity = document.querySelector('#weatherHumidity');
+    const weatherObserved = document.querySelector('#weatherObserved');
+    const weatherNote = document.querySelector('#weatherNote');
+    const ANDREWS_COORDS = '35.2018,-83.8241';
+    const nwsHeaders = { headers: { Accept: 'application/geo+json' } };
+
+    function formatTemp(value) {
+      return Number.isFinite(value) ? `${Math.round(value)} F` : '--';
+    }
+
+    function celsiusToFahrenheit(value) {
+      return Number.isFinite(value) ? (value * 9 / 5) + 32 : null;
+    }
+
+    function formatWind(speed, direction) {
+      if (!Number.isFinite(speed)) return 'Calm or unavailable';
+      const mph = Math.round(speed * 0.621371);
+      if (mph === 0) return 'Calm';
+      return `${mph} mph${Number.isFinite(direction) ? ` from ${Math.round(direction)} deg` : ''}`;
+    }
+
+    function formatObservedTime(isoDate) {
+      if (!isoDate) return '--';
+      const observed = new Date(isoDate);
+      if (Number.isNaN(observed.getTime())) return '--';
+      return observed.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    async function loadWeather() {
+      try {
+        const pointsResponse = await fetch(`https://api.weather.gov/points/${ANDREWS_COORDS}`, nwsHeaders);
+        if (!pointsResponse.ok) throw new Error('NWS point lookup failed');
+        const points = await pointsResponse.json();
+
+        const stationsResponse = await fetch(points.properties.observationStations, nwsHeaders);
+        if (!stationsResponse.ok) throw new Error('NWS station lookup failed');
+        const stations = await stationsResponse.json();
+        const station = stations.features?.[0];
+        if (!station) throw new Error('No nearby NWS station found');
+
+        const latestResponse = await fetch(`${station.id}/observations/latest`, nwsHeaders);
+        if (!latestResponse.ok) throw new Error('NWS observation lookup failed');
+        const observation = await latestResponse.json();
+        const props = observation.properties || {};
+        const stationName = station.properties?.name || 'nearest NWS station';
+        const condition = props.textDescription || 'Current conditions unavailable';
+        const temp = celsiusToFahrenheit(props.temperature?.value);
+        const humidity = props.relativeHumidity?.value;
+
+        weatherWidget.dataset.state = 'loaded';
+        weatherTemp.textContent = formatTemp(temp);
+        weatherStatus.textContent = condition;
+        weatherBadge.textContent = condition.split(/\s+/).slice(0, 2).join(' ') || 'NWS';
+        weatherWind.textContent = formatWind(props.windSpeed?.value, props.windDirection?.value);
+        weatherHumidity.textContent = Number.isFinite(humidity) ? `${Math.round(humidity)}%` : '--';
+        weatherObserved.textContent = formatObservedTime(props.timestamp);
+        weatherNote.textContent = `Observed near Andrews at ${stationName}. Data from the National Weather Service.`;
+      } catch (error) {
+        weatherWidget.dataset.state = 'error';
+        weatherTemp.textContent = '--';
+        weatherStatus.textContent = 'Current conditions are temporarily unavailable.';
+        weatherBadge.textContent = 'NWS';
+        weatherWind.textContent = '--';
+        weatherHumidity.textContent = '--';
+        weatherObserved.textContent = '--';
+        weatherNote.textContent = 'Please check conditions before departure. Weather data is requested from api.weather.gov for Andrews, NC.';
+      }
+    }
+
+    loadWeather();
   </script>
 </body>
 </html>
